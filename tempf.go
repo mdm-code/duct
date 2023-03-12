@@ -1,23 +1,20 @@
 package duct
 
 import (
-	"io"
 	"os"
-	"sync"
 )
 
-type ReadWriteSeekCloser interface {
-	io.ReadSeekCloser
-	io.Writer
-}
+const pattern = `duct-*`
 
 type Tempf struct {
-	f *os.File
-	sync.RWMutex
-	ReadWriteSeekCloser
+	*os.File
 }
 
-func NewTempf() *Tempf {
-	t := Tempf{f: &os.File{}}
-	return &t
+func NewTempf() (*Tempf, error) {
+	f, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return nil, err
+	}
+	t := Tempf{f}
+	return &t, nil
 }
