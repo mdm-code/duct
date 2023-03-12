@@ -17,25 +17,42 @@ var Discard io.WriteCloser = discard{}
 // NilFDError indicates that a file descriptor for read/write operation is nil.
 var NilFDError error = errors.New("nil file descriptor")
 
-// NameReadWriteSeekCloser specifies the interface for the temporary file. On
+// ReadWriteSeekCloser specifies the interface for the temporary file. On
 // top of a set of standard IO methods, it adds Name() used to retrieve the
 // name of the file passed to the wrapped shell command.
-type NameReadWriteSeekCloser interface {
+type ReadWriteSeekCloser interface {
 	io.Reader
 	io.Writer
 	io.Seeker
 	io.Closer
-	Name() string
+}
+
+// Runner defines the interface for shell process to execute.
+type Runner interface {
+	Run() error
 }
 
 // FDs groups file descriptors used in the process of shell command wrapping.
 type FDs struct {
 	Stdin          io.ReadCloser
 	Stdout, Stderr io.WriteCloser
-	TempFile       NameReadWriteSeekCloser
+	TempFile       ReadWriteSeekCloser
 }
 
-type discard struct{}
+// NewFDs groups file descriptors passed as function arguments in a single
+// struct.
+//
+// The closer method returned alongside the struct should be deferred to ensure
+// that all files are closed upon the termination of the program.
+func NewFDs(stdin io.ReadCloser, stdout, stderr io.WriteCloser, tempFile ReadWriteSeekCloser) (*FDs, func() error) {
+	fds := &FDs{
+		Stdin:    stdin,
+		Stdout:   stdout,
+		Stderr:   stderr,
+		TempFile: tempFile,
+	}
+	return fds, (*fds).Close
+}
 
 // Close consecutively calls Close() on all file descriptors.
 func (f *FDs) Close() error {
@@ -43,24 +60,12 @@ func (f *FDs) Close() error {
 		if c == nil {
 			return NilFDError
 		}
-		err := c.Close()
-		if err != nil {
-			return err
-		}
+		c.Close()
 	}
 	return nil
 }
 
-// NewFDs groups file descriptors passed as function arguments in a single
-// struct.
-func NewFDs(stdin io.ReadCloser, stdout, stderr io.WriteCloser, tempFile NameReadWriteSeekCloser) *FDs {
-	return &FDs{
-		Stdin:    stdin,
-		Stdout:   stdout,
-		Stderr:   stderr,
-		TempFile: tempFile,
-	}
-}
+type discard struct{}
 
 // Write on the discard struct always succeeds when it is invoked.
 func (discard) Write(b []byte) (int, error) { return len(b), nil }
@@ -68,37 +73,36 @@ func (discard) Write(b []byte) (int, error) { return len(b), nil }
 // Close on the discard struct never raises an error when it is invoked.
 func (discard) Close() error { return nil }
 
-//
+// Cmd returns the Cmd stuct to execute a given named program with given
+// arguments and file descriptors attached.
 func Cmd(name string, stdout, stderr io.Writer, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	return cmd
 }
 
-// Wrap invokes a code formatter by its name with source code read from
-// standard input.
+// Wrap executes a given named formatter program cmd.
 //
 // Code to be formatted is being read from the fds.Stdin and written to
 // fds.Stdout with fds.TempFile read/write functioning as an intermediate step
 // necessitated by the design of the CLI interface of the formatter.
-func Wrap(name string, fds *FDs) error {
+func Wrap(cmd Runner, fds *FDs) error {
 	in := bufio.NewReader(fds.Stdin)
 	_, err := in.WriteTo(fds.TempFile)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
 	_, err = fds.TempFile.Seek(0, 0)
 	if err != nil {
 		return err
 	}
-	cmd := Cmd(name, fds.Stdout, fds.Stderr, fds.TempFile.Name())
 	err = cmd.Run()
 	if err != nil {
 		return err
 	}
 	out := bufio.NewWriter(fds.Stdout)
 	_, err = out.ReadFrom(fds.TempFile)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
 	return nil
