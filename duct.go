@@ -1,3 +1,9 @@
+/*
+Package duct provides the internals for the duct program so that it's able to
+wrap a code or text formatter that takes file names as positional arguments
+inside of standard Unix STDIN to STDOUT filter-like data flow. It does so with
+intermediate read/write operations on a temporary file.
+*/
 package duct
 
 import (
