@@ -7,16 +7,19 @@ import (
 	"os/exec"
 )
 
-// Pattern
+// Pattern defines the name pattern for the temporary file.
 const Pattern = `duct-*`
 
-// Discard
+// Discard is a WriteCloser that does nothing when either Write or Close
+// methods are invoked. Ever call succeeds.
 var Discard io.WriteCloser = discard{}
 
-// NilFDError
-var NilFDError error = errors.New("")
+// NilFDError indicates that a file descriptor for read/write operation is nil.
+var NilFDError error = errors.New("nil file descriptor")
 
-// NameReadWriteSeekCloser
+// NameReadWriteSeekCloser specifies the interface for the temporary file. On
+// top of a set of standard IO methods, it adds Name() used to retrieve the
+// name of the file passed to the wrapped shell command.
 type NameReadWriteSeekCloser interface {
 	io.Reader
 	io.Writer
@@ -25,7 +28,7 @@ type NameReadWriteSeekCloser interface {
 	Name() string
 }
 
-// FDs
+// FDs groups file descriptors used in the process of shell command wrapping.
 type FDs struct {
 	Stdin          io.ReadCloser
 	Stdout, Stderr io.WriteCloser
@@ -34,9 +37,12 @@ type FDs struct {
 
 type discard struct{}
 
-// Close
+// Close consecutively calls Close() on all file descriptors.
 func (f *FDs) Close() error {
 	for _, c := range []io.Closer{f.Stdin, f.Stdout, f.Stderr, f.TempFile} {
+		if c == nil {
+			return NilFDError
+		}
 		err := c.Close()
 		if err != nil {
 			return err
@@ -45,7 +51,8 @@ func (f *FDs) Close() error {
 	return nil
 }
 
-// NewFDs
+// NewFDs groups file descriptors passed as function arguments in a single
+// struct.
 func NewFDs(stdin io.ReadCloser, stdout, stderr io.WriteCloser, tempFile NameReadWriteSeekCloser) *FDs {
 	return &FDs{
 		Stdin:    stdin,
@@ -55,10 +62,10 @@ func NewFDs(stdin io.ReadCloser, stdout, stderr io.WriteCloser, tempFile NameRea
 	}
 }
 
-// Write
+// Write on the discard struct always succeeds when it is invoked.
 func (discard) Write(b []byte) (int, error) { return len(b), nil }
 
-// Close
+// Close on the discard struct never raises an error when it is invoked.
 func (discard) Close() error { return nil }
 
 //
@@ -68,7 +75,12 @@ func Cmd(name string, stdout, stderr io.Writer, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// Wrap
+// Wrap invokes a code formatter by its name with source code read from
+// standard input.
+//
+// Code to be formatted is being read from the fds.Stdin and written to
+// fds.Stdout with fds.TempFile read/write functioning as an intermediate step
+// necessitated by the design of the CLI interface of the formatter.
 func Wrap(name string, fds *FDs) error {
 	in := bufio.NewReader(fds.Stdin)
 	_, err := in.WriteTo(fds.TempFile)
