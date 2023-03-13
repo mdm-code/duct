@@ -30,9 +30,7 @@ var Discard io.WriteCloser = discard{}
 // NilFDError indicates that a file descriptor for read/write operation is nil.
 var NilFDError error = errors.New("nil file descriptor")
 
-// ReadWriteSeekCloser specifies the interface for the temporary file. On
-// top of a set of standard IO methods, it adds Name() used to retrieve the
-// name of the file passed to the wrapped shell command.
+// ReadWriteSeekCloser specifies the interface for the temporary file.
 type ReadWriteSeekCloser interface {
 	io.Reader
 	io.Writer
@@ -40,7 +38,7 @@ type ReadWriteSeekCloser interface {
 	io.Closer
 }
 
-// Runner defines the interface for shell process to execute.
+// Runner defines the interface for a shell process to be executed.
 type Runner interface {
 	Run() error
 }
@@ -67,7 +65,7 @@ func NewFDs(stdin io.ReadCloser, stdout, stderr io.WriteCloser, tempFile ReadWri
 	return fds, (*fds).Close
 }
 
-// Close consecutively calls Close() on all file descriptors.
+// Close consecutively calls Close on all file descriptors.
 func (f *FDs) Close() error {
 	for _, c := range []io.Closer{f.Stdin, f.Stdout, f.Stderr, f.TempFile} {
 		if c == nil {
@@ -94,7 +92,8 @@ func Cmd(name string, stdout, stderr io.Writer, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// Wrap executes a given named formatter program cmd.
+// Wrap executes a given named formatter program cmd and a set of fds file
+// descriptors.
 //
 // Code to be formatted is being read from the fds.Stdin and written to
 // fds.Stdout with fds.TempFile read/write functioning as an intermediate step
