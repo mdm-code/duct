@@ -1,8 +1,15 @@
 /*
-Package duct provides the internals for the duct program so that it's able to
-wrap a code or text formatter that takes file names as positional arguments
-inside of standard Unix STDIN to STDOUT filter-like data flow. It does so with
-intermediate read/write operations on a temporary file.
+Package duct provides the internals for the duct command-line program wrapping
+code formatters that do not read from standard input data stream, and instead
+they take file names as command arguments. The package offers components that
+allow such commands to be wrapped inside of a standard Unix STDIN to STDOUT
+filter-like data flow.
+
+The general idea is that input data read from standard input is written to an
+intermediate temporary file. The name of the file gets passed to as one of the
+positional arguments of the named program to be executed. The modified contents
+of the file are then re-read and written out the standard output. This way the
+wrapped program can be used as a regular Unix filter.
 */
 package duct
 
@@ -23,9 +30,7 @@ var Discard io.WriteCloser = discard{}
 // NilFDError indicates that a file descriptor for read/write operation is nil.
 var NilFDError error = errors.New("nil file descriptor")
 
-// ReadWriteSeekCloser specifies the interface for the temporary file. On
-// top of a set of standard IO methods, it adds Name() used to retrieve the
-// name of the file passed to the wrapped shell command.
+// ReadWriteSeekCloser specifies the interface for the temporary file.
 type ReadWriteSeekCloser interface {
 	io.Reader
 	io.Writer
@@ -33,7 +38,7 @@ type ReadWriteSeekCloser interface {
 	io.Closer
 }
 
-// Runner defines the interface for shell process to execute.
+// Runner defines the interface for a shell process to be executed.
 type Runner interface {
 	Run() error
 }
@@ -60,7 +65,7 @@ func NewFDs(stdin io.ReadCloser, stdout, stderr io.WriteCloser, tempFile ReadWri
 	return fds, (*fds).Close
 }
 
-// Close consecutively calls Close() on all file descriptors.
+// Close consecutively calls Close on all file descriptors.
 func (f *FDs) Close() error {
 	for _, c := range []io.Closer{f.Stdin, f.Stdout, f.Stderr, f.TempFile} {
 		if c == nil {
@@ -87,7 +92,8 @@ func Cmd(name string, stdout, stderr io.Writer, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// Wrap executes a given named formatter program cmd.
+// Wrap executes a given named formatter program cmd and a set of fds file
+// descriptors.
 //
 // Code to be formatted is being read from the fds.Stdin and written to
 // fds.Stdout with fds.TempFile read/write functioning as an intermediate step
