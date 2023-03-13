@@ -125,7 +125,7 @@ func TestDiscardClose(t *testing.T) {
 	}
 }
 
-// Verify if Wrap gets called successfully.
+// Verify if Wrap() gets called successfully.
 func TestWrapSuccess(t *testing.T) {
 	cmd := MockedCmd{}
 	fds, _ := NewFDs(
@@ -140,13 +140,13 @@ func TestWrapSuccess(t *testing.T) {
 	}
 }
 
-// Test the constructor interface agreement.
+// Test the Cmd() constructor interface agreement.
 func TestCmdConstructor(t *testing.T) {
 	var _ Runner
 	_ = Cmd("black", MockedWriter{}, MockedWriter{}, []string{"main.py"}...)
 }
 
-// Check if Wrap fails in the predefined scenarios.
+// Check if Wrap() fails in the predefined scenarios.
 func TestWrapRunFailed(t *testing.T) {
 	cases := []struct {
 		name string
