@@ -4,7 +4,7 @@
   </div>
 </h1>
 
-<h4 align="center">Wrap a code formatter inside of a STDIN to STDOUT filter-like data flow</h4>
+<h4 align="center">Wrap a code formatter inside of a `stdin-to-stdout` filter-like data flow</h4>
 
 <div align="center">
 <p>
@@ -26,18 +26,18 @@
 </p>
 </div>
 
-The `duct` program allows to wrap code formatters inside of a STDIN to STDOUT
-filter-like data flow. It wraps a code formatter, which accepts file names as
-commands arguments instead of reading from standard input data stream, inside
-of a standard Unix STDIN to STDOUT filter-like data flow. Consult the [package
-documentation](https://pkg.go.dev/github.com/mdm-code/duct) or see
+The `duct` program allows to wrap code formatters inside of a `stdin` to
+`stdout` filter-like data flow. It wraps a code formatter, which accepts file
+names as commands arguments instead of reading from standard input data stream,
+inside of a standard Unix `stdin` to `stdout` filter-like data flow. Consult
+the [package documentation](https://pkg.go.dev/github.com/mdm-code/duct) or see
 [Usage](#usage) to see how it works.
 
 
 ## Installation
 
 Install the package to use the command-line `duct` to wrap code formatters
-inside of a STDIN to STDOUT filter-like data flow.
+inside of a `stdin` to `stdout` filter-like data flow.
 
 ```sh
 go install github.com/mdm-code/duct@latest
