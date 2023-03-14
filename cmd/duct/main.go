@@ -57,7 +57,7 @@ standard Unix stdin to stdout filter-like data flow.
 `
 
 func main() {
-	if len(os.Args) > 1 && isHelp(os.Args[1]) {
+	if len(os.Args) == 1 || (len(os.Args) > 1 && isHelp(os.Args[1])) {
 		fmt.Fprintf(os.Stdout, usage)
 		return
 	}
