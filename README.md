@@ -75,9 +75,9 @@ EOF
 
 The example uses heredoc to direct code to standard input of `duct` that is
 going to be formatter with `black` with the max line length set to 79
-characters. The output is going to be written to STDOUT accordingly. This lets
-you use `black` in `vim` as if it was a regular filter command, which makes
-life much easier for a regular Python dev.
+characters. The output is going to be written to `stdout` accordingly. This
+lets you use `black` in `vim` as if it was a regular filter command, which
+makes life much easier for a regular Python dev.
 
 
 ## Development
