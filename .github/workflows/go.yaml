@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
 
@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         go-version: [ '1.19' ]
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest ]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -28,6 +28,10 @@ jobs:
         go version
         go install golang.org/x/lint/golint@latest
 
+    - name: Install code formatter
+      run: |
+        sudo apt-get -y install black
+
     - name: Build
       run: make build
 
@@ -36,3 +40,6 @@ jobs:
 
     - name: Coverage
       uses: codecov/codecov-action@v3
+
+    - name: Test formatter
+      run: go build -o duct cmd/duct/main.go && echo -n class A':' pass | ./duct black -l 79
