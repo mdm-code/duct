@@ -40,7 +40,7 @@ Install the package to use the command-line `duct` to wrap code formatters
 inside of a `stdin` to `stdout` filter-like data flow.
 
 ```sh
-go install github.com/mdm-code/duct@latest
+go install github.com/mdm-code/duct/cmd/duct@latest
 ```
 
 Although I don't really see the reason why one might want to do it, use the
