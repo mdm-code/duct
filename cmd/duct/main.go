@@ -57,16 +57,21 @@ standard Unix stdin to stdout filter-like data flow.
 `
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
 	if len(os.Args) == 1 || (len(os.Args) > 1 && isHelp(os.Args[1])) {
 		fmt.Fprintf(os.Stdout, usage)
-		return
+		return 0
 	}
 	f, err := os.CreateTemp("", duct.Pattern)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create a temporary file: %s", err)
-		os.Exit(1)
+		return 1
 	}
 	fds, closer := duct.NewFDs(os.Stdin, os.Stdout, duct.Discard, f)
+	defer os.Remove(f.Name())
 	defer closer()
 	args := []string{}
 	if len(os.Args) > 1 {
@@ -77,8 +82,9 @@ func main() {
 	err = duct.Wrap(cmd, fds)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reformat the file: %s", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func isHelp(arg string) bool {
