@@ -71,6 +71,7 @@ func run() int {
 		return 1
 	}
 	fds, closer := duct.NewFDs(os.Stdin, os.Stdout, duct.Discard, f)
+	defer os.Remove(f.Name())
 	defer closer()
 	args := []string{}
 	if len(os.Args) > 1 {
