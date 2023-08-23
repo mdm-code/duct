@@ -78,7 +78,7 @@ func run() int {
 		args = append(args, os.Args[2:]...)
 	}
 	args = append(args, f.Name())
-	cmd := duct.Cmd(os.Args[1], os.Stdout, duct.Discard, args...)
+	cmd := duct.Cmd(os.Args[1], duct.Discard, duct.Discard, args...)
 	err = duct.Wrap(cmd, fds)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reformat the file: %s", err)
