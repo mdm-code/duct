@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/mdm-code/duct"
@@ -12,10 +14,12 @@ var usage = `duct - add stdin and stdout to a code formatter
 Duct wraps a code formatter inside of a stdin to stdout filter-like data flow.
 
 Usage:
-	duct [args...]
+	duct [OPTIONS] [args...]
 
 Options:
-	-h, --help  show this help message and exit
+	-h, -help, --help  show this help message and exit
+	-stdout, --stdout  attach stdout of the wrapped command
+	-stderr, --stderr  attach stderr of the wrapped command
 
 Example:
 	duct black -l 79 <<EOF
@@ -61,9 +65,10 @@ func main() {
 }
 
 func run() int {
-	if len(os.Args) == 1 || (len(os.Args) > 1 && isHelp(os.Args[1])) {
-		fmt.Fprintf(os.Stdout, usage)
-		return 0
+	args := parseArgs()
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "no command provided")
+		return 1
 	}
 	f, err := os.CreateTemp("", duct.Pattern)
 	if err != nil {
@@ -73,13 +78,22 @@ func run() int {
 	fds, closer := duct.NewFDs(os.Stdin, os.Stdout, duct.Discard, f)
 	defer os.Remove(f.Name())
 	defer closer()
-	args := []string{}
-	if len(os.Args) > 1 {
-		args = append(args, os.Args[2:]...)
-	}
+	cmdName, args := args[0], args[1:]
 	args = append(args, f.Name())
-	cmd := duct.Cmd(os.Args[1], duct.Discard, duct.Discard, args...)
-	err = duct.Wrap(cmd, fds)
+	var o io.Writer = duct.Discard
+	if stdout {
+		o = os.Stdout
+	}
+	var e io.Writer = duct.Discard
+	if stderr {
+		e = os.Stderr
+	}
+	cmd := duct.Cmd(cmdName, o, e, args...)
+	if stdout || stderr {
+		err = duct.WrapXXX(cmd, fds)
+	} else {
+		err = duct.Wrap(cmd, fds)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to reformat the file: %s", err)
 		return 1
@@ -87,11 +101,24 @@ func run() int {
 	return 0
 }
 
-func isHelp(arg string) bool {
-	for _, flag := range []string{"-h", "-help", "--help"} {
-		if arg == flag {
-			return true
-		}
+var stdout bool
+var stderr bool
+
+// NOTE: consider using boolfunc that replaces discard with std in/out
+// NOTE: the second occurrence will be added to unparsed args correctly,
+// but it requires the 2nd one to be placed as the wrapped command arg like
+// so:
+// duct --stdout black --stdout=true
+//
+// In case the --stdout lands in front of the black, it will be evaluated
+// as the duct native command argument.
+func parseArgs() []string {
+	w := flag.CommandLine.Output()
+	flag.Usage = func() {
+		fmt.Fprintf(w, usage)
 	}
-	return false
+	flag.BoolVar(&stdout, "stdout", false, "")
+	flag.BoolVar(&stderr, "stderr", false, "")
+	flag.Parse()
+	return flag.Args()
 }
