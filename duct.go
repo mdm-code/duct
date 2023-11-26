@@ -12,7 +12,7 @@ const Pattern = `duct-*`
 
 // Discard is a WriteCloser that does nothing when either Write or Close
 // methods are invoked. Ever call succeeds.
-var Discard io.WriteCloser = discard{}
+var Discard discard
 
 // NilFDError indicates that a file descriptor for read/write operation is nil.
 var NilFDError error = errors.New("nil file descriptor")
@@ -102,6 +102,24 @@ func Wrap(cmd Runner, fds *FDs) error {
 	out := bufio.NewWriter(fds.Stdout)
 	_, err = out.ReadFrom(fds.TempFile)
 	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
+}
+
+// WrapXXX ...
+func WrapXXX(cmd Runner, fds *FDs) error {
+	in := bufio.NewReader(fds.Stdin)
+	_, err := in.WriteTo(fds.TempFile)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	_, err = fds.TempFile.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	err = cmd.Run()
+	if err != nil {
 		return err
 	}
 	return nil
