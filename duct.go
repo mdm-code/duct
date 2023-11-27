@@ -107,15 +107,16 @@ func Wrap(cmd Runner, fds *FDs) error {
 	return nil
 }
 
-// WrapXXX ...
-func WrapXXX(cmd Runner, fds *FDs) error {
+// WrapWrite executes the provided named formatter program wrapping the
+// temporary file write operation.
+//
+// Code to be formatted is read from the fds.Stdin and written to fds.TempFile
+// to allow the wrapped command to read code from the temporary file and handle
+// its output using the command's own stdout and/or stderr.
+func WrapWrite(cmd Runner, fds *FDs) error {
 	in := bufio.NewReader(fds.Stdin)
 	_, err := in.WriteTo(fds.TempFile)
 	if err != nil && !errors.Is(err, io.EOF) {
-		return err
-	}
-	_, err = fds.TempFile.Seek(0, 0)
-	if err != nil {
 		return err
 	}
 	err = cmd.Run()
