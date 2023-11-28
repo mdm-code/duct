@@ -53,7 +53,7 @@ The program wraps a code formatter, which accepts file names as command
 arguments instead of reading from standard input data stream, inside of a
 standard Unix stdin to stdout filter-like data flow. The -stdout and -stderr
 flags replace stdout and stderr of duct with stdout and stderr of the wrapped
-command. It proves useful when the wrapped command reads code from files but
-writes its output to stdout and/or stderr and not directly to provided files.
+command. It's useful when the wrapped command reads code from files but writes
+its output to stdout and/or stderr instead of writing directly to files.
 */
 package main

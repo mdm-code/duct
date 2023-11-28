@@ -9,6 +9,11 @@ import (
 	"github.com/mdm-code/duct"
 )
 
+const (
+	exitSuccess int = iota
+	exitFailure
+)
+
 var (
 	usage = `duct - add stdin and stdout to a code formatter
 
@@ -60,8 +65,8 @@ The program wraps a code formatter, which accepts file names as command
 arguments instead of reading from standard input data stream, inside of a
 standard Unix stdin to stdout filter-like data flow. The -stdout and -stderr
 flags replace stdout and stderr of duct with stdout and stderr of the wrapped
-command. It proves useful when the wrapped command reads code from files but
-writes its output to stdout and/or stderr and not directly to provided files.
+command. It's useful when the wrapped command reads code from files but writes
+its output to stdout and/or stderr instead of writing directly to files.
 `
 
 	attachStdout bool
@@ -76,21 +81,31 @@ func main() {
 }
 
 func run() int {
-	nonFlagArgs := parseArgs()
+	flag.Usage = func() {
+		w := flag.CommandLine.Output()
+		fmt.Fprint(w, usage)
+	}
+	flag.BoolVar(&attachStdout, "stdout", false, "")
+	flag.BoolVar(&attachStderr, "stderr", false, "")
+	flag.Parse()
+
+	nonFlagArgs := flag.Args()
 	if len(nonFlagArgs) < 1 {
 		fmt.Fprintf(os.Stderr, "ERROR: missing command to wrap")
-		return 1
+		return exitFailure
 	}
-	f, err := os.CreateTemp("", duct.Pattern)
+
+	tempFile, err := os.CreateTemp("", duct.Pattern)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: failed to create a temporary file: %s", err)
-		return 1
+		return exitFailure
 	}
-	ductFDs, closer := duct.NewFDs(os.Stdin, os.Stdout, duct.Discard, f)
-	defer os.Remove(f.Name())
+	ductFDs, closer := duct.NewFDs(os.Stdin, os.Stdout, duct.Discard, tempFile)
+	defer os.Remove(tempFile.Name())
 	defer closer()
+
 	cmdName, cmdArgs := nonFlagArgs[0], nonFlagArgs[1:]
-	cmdArgs = append(cmdArgs, f.Name())
+	cmdArgs = append(cmdArgs, tempFile.Name())
 	if attachStdout {
 		cmdStdout = os.Stdout
 	}
@@ -99,24 +114,13 @@ func run() int {
 	}
 	cmd := duct.Cmd(cmdName, cmdStdout, cmdStderr, cmdArgs...)
 	if attachStdout || attachStderr {
-		err = duct.WrapWrite(cmd, ductFDs)
+		err = duct.WrapWriteOnly(cmd, ductFDs)
 	} else {
 		err = duct.Wrap(cmd, ductFDs)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: failed to reformat the file: %s", err)
-		return 1
+		return exitFailure
 	}
-	return 0
-}
-
-func parseArgs() []string {
-	w := flag.CommandLine.Output()
-	flag.Usage = func() {
-		fmt.Fprint(w, usage)
-	}
-	flag.BoolVar(&attachStdout, "stdout", attachStdout, "")
-	flag.BoolVar(&attachStderr, "stderr", attachStderr, "")
-	flag.Parse()
-	return flag.Args()
+	return exitSuccess
 }
