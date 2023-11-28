@@ -140,18 +140,34 @@ func TestWrapSuccess(t *testing.T) {
 	}
 }
 
+// Verify if WrapWriteOnly() gets called successfully.
+func TestWrapWriteOnlySuccess(t *testing.T) {
+	cmd := MockedCmd{}
+	fds, _ := NewFDs(
+		MockedReadCloser{},
+		MockedWriteCloser{},
+		MockedWriteCloser{},
+		MockedReadWriteSeekCloser{},
+	)
+	err := WrapWriteOnly(cmd, fds)
+	if err != nil {
+		t.Error("WrapWrapOnly() should pass without any errors in this scenario")
+	}
+}
+
 // Test the Cmd() constructor interface agreement.
 func TestCmdConstructor(t *testing.T) {
 	var _ Runner
 	_ = Cmd("black", MockedWriter{}, MockedWriter{}, []string{"main.py"}...)
 }
 
-// Check if Wrap() fails in the predefined scenarios.
-func TestWrapRunFailed(t *testing.T) {
+// Check if calls to Wrap and WrapWriteOnly fail in the predefined scenarios.
+func TestWrapersRunFailed(t *testing.T) {
 	cases := []struct {
-		name string
-		cmd  Runner
-		fds  *FDs
+		name  string
+		cmd   Runner
+		fds   *FDs
+		funcs []func(Runner, *FDs) error
 	}{
 		{
 			"runner-fail",
@@ -162,6 +178,7 @@ func TestWrapRunFailed(t *testing.T) {
 				MockedWriteCloser{},
 				MockedReadWriteSeekCloser{},
 			},
+			[]func(Runner, *FDs) error{Wrap, WrapWriteOnly},
 		},
 		{
 			"stdout-fail",
@@ -172,6 +189,7 @@ func TestWrapRunFailed(t *testing.T) {
 				MockedWriteCloser{},
 				MockedReadWriteSeekCloser{},
 			},
+			[]func(Runner, *FDs) error{Wrap},
 		},
 		{
 			"tmpfile-write-fail",
@@ -182,6 +200,7 @@ func TestWrapRunFailed(t *testing.T) {
 				MockedWriteCloser{},
 				MockedReadWriteSeekCloserFail2{},
 			},
+			[]func(Runner, *FDs) error{Wrap, WrapWriteOnly},
 		},
 		{
 			"tmpfile-read-fail",
@@ -192,14 +211,17 @@ func TestWrapRunFailed(t *testing.T) {
 				MockedWriteCloser{},
 				MockedReadWriteSeekCloserFail{},
 			},
+			[]func(Runner, *FDs) error{Wrap},
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			err := Wrap(c.cmd, c.fds)
-			if err == nil {
-				t.Error("the following Wrap attributes should make it fail")
-			}
-		})
+		for _, fn := range c.funcs {
+			t.Run(c.name, func(t *testing.T) {
+				err := fn(c.cmd, c.fds)
+				if err == nil {
+					t.Error("the following Wrap attributes should make it fail")
+				}
+			})
+		}
 	}
 }

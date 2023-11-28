@@ -1,21 +1,31 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/mdm-code/duct"
 )
 
-var usage = `duct - add stdin and stdout to a code formatter
+const (
+	exitSuccess int = iota
+	exitFailure
+)
+
+var (
+	usage = `duct - add stdin and stdout to a code formatter
 
 Duct wraps a code formatter inside of a stdin to stdout filter-like data flow.
 
 Usage:
-	duct [args...]
+	duct [OPTIONS] [args...]
 
 Options:
-	-h, --help  show this help message and exit
+	-h, -help, --help  show this help message and exit
+	-stdout, --stdout  attach stdout of the wrapped command
+	-stderr, --stderr  attach stderr of the wrapped command
 
 Example:
 	duct black -l 79 <<EOF
@@ -51,47 +61,66 @@ Output:
 	q = Queue()
 	print_size(q)
 
-The program wraps a code formatter, which accepts file names as commands
+The program wraps a code formatter, which accepts file names as command
 arguments instead of reading from standard input data stream, inside of a
-standard Unix stdin to stdout filter-like data flow.
+standard Unix stdin to stdout filter-like data flow. The -stdout and -stderr
+flags replace stdout and stderr of duct with stdout and stderr of the wrapped
+command. It's useful when the wrapped command reads code from files but writes
+its output to stdout and/or stderr instead of writing directly to files.
 `
+
+	attachStdout bool
+	attachStderr bool
+
+	cmdStdout io.Writer = duct.Discard
+	cmdStderr io.Writer = duct.Discard
+)
 
 func main() {
 	os.Exit(run())
 }
 
 func run() int {
-	if len(os.Args) == 1 || (len(os.Args) > 1 && isHelp(os.Args[1])) {
-		fmt.Fprintf(os.Stdout, usage)
-		return 0
+	flag.Usage = func() {
+		w := flag.CommandLine.Output()
+		fmt.Fprint(w, usage)
 	}
-	f, err := os.CreateTemp("", duct.Pattern)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create a temporary file: %s", err)
-		return 1
-	}
-	fds, closer := duct.NewFDs(os.Stdin, os.Stdout, duct.Discard, f)
-	defer os.Remove(f.Name())
-	defer closer()
-	args := []string{}
-	if len(os.Args) > 1 {
-		args = append(args, os.Args[2:]...)
-	}
-	args = append(args, f.Name())
-	cmd := duct.Cmd(os.Args[1], duct.Discard, duct.Discard, args...)
-	err = duct.Wrap(cmd, fds)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to reformat the file: %s", err)
-		return 1
-	}
-	return 0
-}
+	flag.BoolVar(&attachStdout, "stdout", false, "")
+	flag.BoolVar(&attachStderr, "stderr", false, "")
+	flag.Parse()
 
-func isHelp(arg string) bool {
-	for _, flag := range []string{"-h", "-help", "--help"} {
-		if arg == flag {
-			return true
-		}
+	nonFlagArgs := flag.Args()
+	if len(nonFlagArgs) < 1 {
+		fmt.Fprintf(os.Stderr, "ERROR: missing command to wrap")
+		return exitFailure
 	}
-	return false
+
+	tempFile, err := os.CreateTemp("", duct.Pattern)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: failed to create a temporary file: %s", err)
+		return exitFailure
+	}
+	ductFDs, closer := duct.NewFDs(os.Stdin, os.Stdout, duct.Discard, tempFile)
+	defer os.Remove(tempFile.Name())
+	defer closer()
+
+	cmdName, cmdArgs := nonFlagArgs[0], nonFlagArgs[1:]
+	cmdArgs = append(cmdArgs, tempFile.Name())
+	if attachStdout {
+		cmdStdout = os.Stdout
+	}
+	if attachStderr {
+		cmdStderr = os.Stderr
+	}
+	cmd := duct.Cmd(cmdName, cmdStdout, cmdStderr, cmdArgs...)
+	if attachStdout || attachStderr {
+		err = duct.WrapWriteOnly(cmd, ductFDs)
+	} else {
+		err = duct.Wrap(cmd, ductFDs)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: failed to reformat the file: %s", err)
+		return exitFailure
+	}
+	return exitSuccess
 }

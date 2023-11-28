@@ -79,6 +79,11 @@ characters. The output is going to be written to `stdout` accordingly. This
 lets you use `black` in `vim` as if it was a regular filter command, which
 makes life much easier for a regular Python dev.
 
+In case the wrapped command writes the formatted code output to `stdout` or
+`stderr`, `duct` has two flags `-stdout` and `-stderr` that attach them to the
+wrapped command instead of redirecting the whole R/W flow through a temporary
+file.
+
 
 ## Development
 
