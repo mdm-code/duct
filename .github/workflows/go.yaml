@@ -38,8 +38,11 @@ jobs:
     - name: Test
       run: go test -v -coverprofile coverage.txt -covermode atomic ./...
 
-    - name: Coverage
+    - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
 
     - name: Test formatter
       run: go build -o duct cmd/duct/main.go && echo -n class A':' pass | ./duct black -l 79
